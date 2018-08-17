@@ -258,7 +258,6 @@ static uint64_t final_tx_ts;
 static double tof;
 static double distance;
 
-
 uint64_t get_tx_timestamp_u64(void);
 uint64_t get_rx_timestamp_u64(void);
  void resp_msg_set_ts(uint8 *ts_field, const uint64_t ts);

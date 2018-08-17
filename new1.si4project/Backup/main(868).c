@@ -47,7 +47,6 @@ dwt_txconfig_t cus_tx_config = {
 };
 
 uint8_t tx_buff[TX_BUFFER_SIZE] = { 0 };
-
 ringBuff_t usart4_ring_buffer = { 0, 0, 0, {0} }; // declare of ring buffer
 int frameIdx = 0;   // the counter for the frame index.
 
@@ -106,6 +105,9 @@ void DEBUG_USART_IRQHandler(void)
         USART_ClearITPendingBit(DEBUG_USART, USART_IT_RXNE);  // clear the USART_IT_RXNE flag.
         receData = USART_ReceiveData(DEBUG_USART);                // fetch the data from UART3 receive data register,
                                                               //   and store it in the 'temp' variable.
+        DEBUG_USART_SendByte(receData);
+        return 0 ;
+
         switch(RUN_MODE)
         {
             case CONTROLER_MODE:
@@ -252,7 +254,6 @@ void DEBUG_USART_IRQHandler(void)
                     // }
 
                     ringBuffer_writeByte(&usart4_ring_buffer, receData);
-					// buffer pool data changes all the time 
                 }
             }
             break;
@@ -491,7 +492,7 @@ int main(void)
     dwt_setsmarttxpower(0);
     dwt_configuretxrf(&cus_tx_config);
     dwt_configure(&config);
-	
+
 
     /* Register RX call-back. */
     dwt_setcallbacks(NULL, &rx_ok_cb, NULL, &rx_err_cb);
@@ -549,7 +550,6 @@ int main(void)
         instance.mode            = RECEIVER;
         global_instruction_frame = FRAME_INSTRUCTION_NONE;
     }
-	
 	
     while(1)
     {
@@ -762,7 +762,6 @@ int main(void)
             {
                 if(instance.mode == RECEIVER)
                 {
-                	
                     if(global_instruction_frame == FRAME_INSTRUCTION_FND)
                     {
                         static unsigned long pre_time, tmp = 0;
@@ -843,33 +842,21 @@ int main(void)
                         case SENDER:
                         {
                             frameIdx = 0;
-							
                             tx_buff[frameIdx++] = FRAME_TYPE;
                             tx_buff[frameIdx++] = FRAME_DATA;
-							
                             tx_buff[frameIdx++] = global_id.euid;  // recorder euid
                             tx_buff[frameIdx++] = tmp_id.panid;    // player panid
                             tx_buff[frameIdx++] = tmp_id.devid;    // player devid
 
-							// 30 frame as a buffer 
-
-							// if while(0) occur then may send many little packet 
-							// sufficient is low even though the data at least to be 1
-                            while(ringBuffer_readByte(&usart4_ring_buffer, &pdata) ) // fetch the data from ringbuffer and store it in the 'pdata' variable.
+                            while(ringBuffer_readByte(&usart4_ring_buffer, &pdata)) // fetch the data from ringbuffer and store it in the 'pdata' variable.
                             {
                                 tx_buff[frameIdx++] = pdata;
                                 if(frameIdx > TX_BUFFER_SIZE-2) // set the upper bound for the numbers of the data which is fetched from ringBuffer.
-                                    break; //stop until achieve TX_BUFFER_SIZE
+                                    break;
                             }
                             tx_buff[frameIdx++] = 0;             // this two bytes is used to store the crc value, it is calculated by the dw1000.
                             tx_buff[frameIdx++] = 0;
                             DW1000_SendByte(tx_buff, frameIdx);  // call the function to send data stored in tx_buff[].
-
-							// send over immeditaly get a copy at the same time 
-							// uart can put the data into the buffer pool through interrupt
-							// most time may be wasted at the "head!=tail" judge and the little package
-
-							// I must not use the ack this wait will waste a lot of time
 							
                             // DEBUG_USART_SendArray(tx_buff, frameIdx);
 							
